@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gabrielkoo · dev.to stats</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #e4e4e4;
+      --muted: #888;
+      --accent: #3b49df;
+      --green: #22c55e;
+      --purple: #a855f7;
+      --orange: #f97316;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+    /* Header */
+    header { display: flex; align-items: center; gap: 12px; padding: 20px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    header img { width: 44px; height: 44px; border-radius: 50%; }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header p { color: var(--muted); font-size: 13px; }
+    .header-link { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+    /* Stats cards */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .stat-card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    .stat-card .value { font-size: 26px; font-weight: 700; }
+    .stat-card.views .value { color: var(--green); }
+    .stat-card.reactions .value { color: var(--purple); }
+    .stat-card.comments .value { color: var(--orange); }
+    .stat-card.articles .value { color: var(--accent); }
+
+    /* Panels */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .panel-title { font-size: 15px; font-weight: 600; }
+
+    /* Toggle buttons */
+    .btn-group { display: flex; gap: 4px; }
+    .btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all .15s; }
+    .btn:hover { border-color: var(--accent); color: var(--text); }
+    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Chart */
+    .chart-wrap { position: relative; height: 220px; }
+    @media (max-width: 600px) { .chart-wrap { height: 180px; } }
+
+    /* Two-col layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* Donut chart */
+    .donut-wrap { position: relative; height: 200px; }
+    .donut-legend { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-label { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .legend-count { color: var(--muted); }
+
+    /* Articles list */
+    .article-list { display: flex; flex-direction: column; gap: 10px; }
+    .article-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
+    .article-rank { font-size: 18px; font-weight: 700; color: var(--border); min-width: 28px; text-align: center; padding-top: 2px; }
+    .article-info { flex: 1; min-width: 0; }
+    .article-title { font-size: 13px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .article-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .article-stat { font-size: 16px; font-weight: 700; min-width: 52px; text-align: right; padding-top: 2px; }
+    .article-stat.views { color: var(--green); }
+    .article-stat.reactions { color: var(--purple); }
+
+    /* Loading */
+    .loading { color: var(--muted); text-align: center; padding: 40px; }
+    .error { color: var(--red); text-align: center; padding: 20px; font-size: 13px; }
+
+    /* Footer */
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0 16px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <img src="https://avatars.githubusercontent.com/u/5065685?v=4" alt="gabrielkoo" />
+    <div>
+      <h1>gabrielkoo</h1>
+      <p>dev.to article analytics</p>
+    </div>
+    <a class="header-link" href="https://dev.to/gabrielkoo" target="_blank">→ dev.to/gabrielkoo</a>
+  </header>
+
+  <div id="stats-grid" class="stats-grid">
+    <div class="stat-card views"><div class="label">Total Views</div><div class="value" id="val-views">—</div></div>
+    <div class="stat-card reactions"><div class="label">Reactions</div><div class="value" id="val-reactions">—</div></div>
+    <div class="stat-card comments"><div class="label">Comments</div><div class="value" id="val-comments">—</div></div>
+    <div class="stat-card articles"><div class="label">Articles</div><div class="value" id="val-articles">—</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Daily Activity</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="btn-group" id="metric-toggle">
+          <button class="btn active" data-metric="views">Views</button>
+          <button class="btn" data-metric="reactions">Reactions</button>
+        </div>
+        <div class="btn-group" id="range-toggle">
+          <button class="btn" data-days="30">30d</button>
+          <button class="btn" data-days="90">90d</button>
+          <button class="btn active" data-days="365">1y</button>
+          <button class="btn" data-days="0">All</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="activity-chart"></canvas></div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Traffic Sources</span>
+      </div>
+      <div class="donut-wrap"><canvas id="traffic-chart"></canvas></div>
+      <div class="donut-legend" id="traffic-legend"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Top Articles</span>
+        <div class="btn-group" id="articles-toggle">
+          <button class="btn active" data-sort="views">Views</button>
+          <button class="btn" data-sort="reactions">Reactions</button>
+        </div>
+      </div>
+      <div id="articles-list" class="article-list"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <footer>
+    Data from <a href="https://github.com/gabrielkoo/devto-stats-github-action" target="_blank">devto-stats-github-action</a> · updated daily
+  </footer>
+</div>
+
+<script>
+const BASE = 'https://gabrielkoo.github.io/devto-stats-github-action/data';
+const PALETTE = ['#3b49df','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#eab308','#14b8a6','#f43f5e','#8b5cf6','#84cc16','#0ea5e9'];
+
+let accountData = null;
+let topData = null;
+let activityChart = null;
+let trafficChart = null;
+let currentMetric = 'views';
+let currentDays = 365;
+let currentSort = 'views';
+
+function fmt(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
+
+async function loadData() {
+  try {
+    const [acc, top] = await Promise.all([
+      fetch(`${BASE}/account.json`).then(r => r.json()),
+      fetch(`${BASE}/top_articles.json`).then(r => r.json()),
+    ]);
+    accountData = acc;
+    topData = top;
+    render();
+  } catch (e) {
+    document.querySelector('.container').innerHTML += `<div class="error">Failed to load data: ${e.message}</div>`;
+  }
+}
+
+function render() {
+  // Stats
+  document.getElementById('val-views').textContent = fmt(accountData.views);
+  document.getElementById('val-reactions').textContent = fmt(accountData.reactions);
+  document.getElementById('val-comments').textContent = fmt(accountData.comments);
+  document.getElementById('val-articles').textContent = accountData.articles;
+
+  renderActivity();
+  renderTraffic();
+  renderArticles();
+}
+
+function getBreakdown() {
+  const bd = accountData.breakdown || [];
+  if (currentDays === 0) return bd;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - currentDays);
+  return bd.filter(d => new Date(d.date) >= cutoff);
+}
+
+function renderActivity() {
+  const bd = getBreakdown();
+  // Aggregate by week if > 180 days
+  let labels, data;
+  if (bd.length > 180) {
+    const weeks = {};
+    bd.forEach(d => {
+      const dt = new Date(d.date);
+      const mon = new Date(dt); mon.setDate(dt.getDate() - dt.getDay() + 1);
+      const key = mon.toISOString().slice(0, 10);
+      if (!weeks[key]) weeks[key] = 0;
+      weeks[key] += d[currentMetric] || 0;
+    });
+    labels = Object.keys(weeks);
+    data = Object.values(weeks);
+  } else {
+    labels = bd.map(d => d.date);
+    data = bd.map(d => d[currentMetric] || 0);
+  }
+
+  const color = currentMetric === 'views' ? '#22c55e' : '#a855f7';
+  const ctx = document.getElementById('activity-chart').getContext('2d');
+
+  if (activityChart) activityChart.destroy();
+  activityChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: color + '99',
+        borderColor: color,
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { title: t => t[0].label, label: t => ` ${fmt(t.raw)} ${currentMetric}` }
+      }},
+      scales: {
+        x: { ticks: { color: '#666', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: '#1f1f1f' } },
+        y: { ticks: { color: '#666' }, grid: { color: '#1f1f1f' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function renderTraffic() {
+  const refs = (accountData.referrers || []).slice(0, 12);
+  const labels = refs.map(r => r.domain || 'Direct');
+  const data = refs.map(r => r.count);
+  const ctx = document.getElementById('traffic-chart').getContext('2d');
+
+  if (trafficChart) trafficChart.destroy();
+  trafficChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: PALETTE, borderColor: '#1a1a1a', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: t => ` ${t.label}: ${fmt(t.raw)}` } }
+      },
+      cutout: '60%'
+    }
+  });
+
+  const legend = document.getElementById('traffic-legend');
+  const total = data.reduce((a, b) => a + b, 0);
+  legend.innerHTML = refs.map((r, i) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${PALETTE[i]}"></div>
+      <span class="legend-label">${r.domain || 'Direct'}</span>
+      <span class="legend-count">${fmt(r.count)} (${Math.round(r.count/total*100)}%)</span>
+    </div>
+  `).join('');
+}
+
+function renderArticles() {
+  const list = currentSort === 'views' ? topData.by_views : topData.by_reaction;
+  const top10 = list.slice(0, 10);
+  const el = document.getElementById('articles-list');
+  el.innerHTML = top10.map((a, i) => {
+    const val = currentSort === 'views' ? a.views : a.reactions;
+    const org = a.org_username || 'gabrielkoo';
+    const url = `https://dev.to/${org}/${a.slug}`;
+    return `
+      <div class="article-item">
+        <div class="article-rank">${i + 1}</div>
+        <div class="article-info">
+          <a class="article-title" href="${url}" target="_blank">${a.title}</a>
+          <div class="article-meta">${org}</div>
+        </div>
+        <div class="article-stat ${currentSort}">${fmt(val)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Event listeners
+document.getElementById('metric-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('[data-metric]');
+  if (!btn) return;
+  currentMetric = btn.dataset.metric;
+  document.querySelectorAll('#metric-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
+  renderActivity();
+});
+
+document.getElementById('range-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('[data-days]');
+  if (!btn) return;
+  currentDays = parseInt(btn.dataset.days);
+  document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
+  renderActivity();
+});
+
+document.getElementById('articles-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('[data-sort]');
+  if (!btn) return;
+  currentSort = btn.dataset.sort;
+  document.querySelectorAll('#articles-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
+  renderArticles();
+});
+
+loadData();
+</script>
+</body>
+</html>
