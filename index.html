@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,13 +13,22 @@
       --text: #e4e4e4;
       --muted: #888;
       --accent: #3b49df;
+      --chart-grid: #1f1f1f;
       --green: #22c55e;
       --purple: #a855f7;
       --orange: #f97316;
       --red: #ef4444;
     }
+    [data-theme="light"] {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --text: #1a1a1a;
+      --muted: #666;
+      --chart-grid: #ebebeb;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; transition: background .2s, color .2s; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
@@ -30,7 +39,10 @@
     header img { width: 44px; height: 44px; border-radius: 50%; }
     header h1 { font-size: 18px; font-weight: 700; }
     header p { color: var(--muted); font-size: 13px; }
-    .header-link { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .header-link { font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .theme-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 16px; line-height: 1; transition: border-color .15s; }
+    .theme-btn:hover { border-color: var(--accent); }
 
     /* Stats cards */
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
@@ -43,20 +55,27 @@
     .stat-card.comments .value { color: var(--orange); }
     .stat-card.articles .value { color: var(--accent); }
 
+    /* Global controls bar */
+    .global-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .global-controls .label { color: var(--muted); font-size: 12px; }
+
     /* Panels */
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
     .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
     .panel-title { font-size: 15px; font-weight: 600; }
+    .panel-subtitle { font-size: 11px; color: var(--muted); margin-left: 6px; }
 
     /* Toggle buttons */
     .btn-group { display: flex; gap: 4px; }
-    .btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all .15s; }
+    .btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all .15s; white-space: nowrap; }
     .btn:hover { border-color: var(--accent); color: var(--text); }
     .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.active-green { background: var(--green); border-color: var(--green); color: #000; }
 
     /* Chart */
     .chart-wrap { position: relative; height: 220px; }
     @media (max-width: 600px) { .chart-wrap { height: 180px; } }
+    .chart-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 13px; }
 
     /* Two-col layout */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -71,77 +90,93 @@
     .legend-count { color: var(--muted); }
 
     /* Articles list */
-    .article-list { display: flex; flex-direction: column; gap: 10px; }
+    .article-list { display: flex; flex-direction: column; gap: 8px; }
     .article-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
-    .article-rank { font-size: 18px; font-weight: 700; color: var(--border); min-width: 28px; text-align: center; padding-top: 2px; }
+    .article-rank { font-size: 16px; font-weight: 700; color: var(--border); min-width: 24px; text-align: center; padding-top: 2px; }
     .article-info { flex: 1; min-width: 0; }
     .article-title { font-size: 13px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .article-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
-    .article-stat { font-size: 16px; font-weight: 700; min-width: 52px; text-align: right; padding-top: 2px; }
+    .article-meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .article-stat { font-size: 15px; font-weight: 700; min-width: 48px; text-align: right; padding-top: 2px; }
     .article-stat.views { color: var(--green); }
     .article-stat.reactions { color: var(--purple); }
 
-    /* Loading */
-    .loading { color: var(--muted); text-align: center; padding: 40px; }
-    .error { color: var(--red); text-align: center; padding: 20px; font-size: 13px; }
+    /* Loading / error */
+    .loading { color: var(--muted); text-align: center; padding: 32px; font-size: 13px; }
+    .error-msg { color: var(--red); text-align: center; padding: 16px; font-size: 13px; }
 
-    /* Footer */
     footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0 16px; }
   </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <img src="https://avatars.githubusercontent.com/u/5065685?v=4" alt="gabrielkoo" />
+    <img id="avatar" src="https://avatars.githubusercontent.com/u/5065685?v=4" alt="gabrielkoo" />
     <div>
       <h1>gabrielkoo</h1>
       <p>dev.to article analytics</p>
     </div>
-    <a class="header-link" href="https://dev.to/gabrielkoo" target="_blank">→ dev.to/gabrielkoo</a>
+    <div class="header-right">
+      <a class="header-link" href="https://dev.to/gabrielkoo" target="_blank">→ dev.to</a>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    </div>
   </header>
 
-  <div id="stats-grid" class="stats-grid">
+  <div class="stats-grid">
     <div class="stat-card views"><div class="label">Total Views</div><div class="value" id="val-views">—</div></div>
     <div class="stat-card reactions"><div class="label">Reactions</div><div class="value" id="val-reactions">—</div></div>
     <div class="stat-card comments"><div class="label">Comments</div><div class="value" id="val-comments">—</div></div>
     <div class="stat-card articles"><div class="label">Articles</div><div class="value" id="val-articles">—</div></div>
   </div>
 
+  <!-- Global controls -->
+  <div class="global-controls">
+    <span class="label">Metric:</span>
+    <div class="btn-group" id="metric-toggle">
+      <button class="btn active" data-metric="views">Views</button>
+      <button class="btn" data-metric="reactions">Reactions</button>
+    </div>
+    <span class="label" style="margin-left:8px">Range:</span>
+    <div class="btn-group" id="range-toggle">
+      <button class="btn" data-days="7">7d</button>
+      <button class="btn" data-days="30">30d</button>
+      <button class="btn" data-days="90">90d</button>
+      <button class="btn active" data-days="365">1y</button>
+      <button class="btn" data-days="0">All</button>
+    </div>
+  </div>
+
+  <!-- Activity chart -->
   <div class="panel">
     <div class="panel-header">
       <span class="panel-title">Daily Activity</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <div class="btn-group" id="metric-toggle">
-          <button class="btn active" data-metric="views">Views</button>
-          <button class="btn" data-metric="reactions">Reactions</button>
-        </div>
-        <div class="btn-group" id="range-toggle">
-          <button class="btn" data-days="30">30d</button>
-          <button class="btn" data-days="90">90d</button>
-          <button class="btn active" data-days="365">1y</button>
-          <button class="btn" data-days="0">All</button>
-        </div>
+      <div class="btn-group" id="stacked-toggle">
+        <button class="btn active" data-stacked="false">Total</button>
+        <button class="btn" data-stacked="true">
+          Stacked
+          <span id="stacked-count-wrap" style="display:none">
+            &nbsp;·&nbsp;
+            <span id="stacked-count-toggle" style="cursor:pointer;text-decoration:underline" onclick="cycleStackedCount(event)">Top <span id="stacked-count-label">3</span></span>
+          </span>
+        </button>
       </div>
     </div>
     <div class="chart-wrap"><canvas id="activity-chart"></canvas></div>
   </div>
 
   <div class="two-col">
+    <!-- Traffic sources -->
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">Traffic Sources</span>
+        <span class="panel-title">Traffic Sources <span class="panel-subtitle">(all-time)</span></span>
       </div>
       <div class="donut-wrap"><canvas id="traffic-chart"></canvas></div>
       <div class="donut-legend" id="traffic-legend"></div>
     </div>
 
+    <!-- Top articles -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Top Articles</span>
-        <div class="btn-group" id="articles-toggle">
-          <button class="btn active" data-sort="views">Views</button>
-          <button class="btn" data-sort="reactions">Reactions</button>
-        </div>
       </div>
       <div id="articles-list" class="article-list"><div class="loading">Loading…</div></div>
     </div>
@@ -154,20 +189,43 @@
 
 <script>
 const BASE = 'https://gabrielkoo.github.io/devto-stats-github-action/data';
+const GH_API = 'https://api.github.com/repos/gabrielkoo/devto-stats-github-action/contents/data/articles';
 const PALETTE = ['#3b49df','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#eab308','#14b8a6','#f43f5e','#8b5cf6','#84cc16','#0ea5e9'];
 
-let accountData = null;
-let topData = null;
-let activityChart = null;
-let trafficChart = null;
+// State
+let accountData = null, topData = null;
+let articleFileMap = null;
+let articleCache = {};
+let activityChart = null, trafficChart = null;
 let currentMetric = 'views';
 let currentDays = 365;
-let currentSort = 'views';
+let isStacked = false;
+let stackedCount = 3;
+
+// Theme
+const savedTheme = localStorage.getItem('devto-theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.getElementById('theme-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('devto-theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '☀️' : '🌙';
+  if (accountData) { renderActivity(); renderTraffic(); }
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
 function fmt(n) {
+  if (n == null) return '—';
   if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
   return String(n);
 }
+
+// ── Data loading ──────────────────────────────────────────────────────────────
 
 async function loadData() {
   try {
@@ -177,76 +235,208 @@ async function loadData() {
     ]);
     accountData = acc;
     topData = top;
+    loadGitHubAvatar();
     render();
   } catch (e) {
-    document.querySelector('.container').innerHTML += `<div class="error">Failed to load data: ${e.message}</div>`;
+    document.querySelector('.container').insertAdjacentHTML('beforeend',
+      `<div class="error-msg">Failed to load data: ${e.message}</div>`);
   }
 }
 
+async function loadGitHubAvatar() {
+  try {
+    const user = await fetch('https://api.github.com/users/gabrielkoo').then(r => r.json());
+    if (user.avatar_url) document.getElementById('avatar').src = user.avatar_url;
+  } catch (_) {}
+}
+
+async function ensureArticleFileMap() {
+  if (articleFileMap) return;
+  const listing = await fetch(GH_API).then(r => r.json());
+  articleFileMap = {};
+  for (const file of listing) {
+    const m = file.name.match(/^\d+-(.+)\.json$/);
+    if (m) articleFileMap[m[1]] = file.download_url;
+  }
+}
+
+async function loadArticles(slugs) {
+  await ensureArticleFileMap();
+  const missing = slugs.filter(s => !articleCache[s] && articleFileMap[s]);
+  if (missing.length) {
+    await Promise.all(missing.map(async s => {
+      articleCache[s] = await fetch(articleFileMap[s]).then(r => r.json());
+    }));
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function filterByDays(breakdown) {
+  if (!currentDays) return breakdown;
+  const cutoff = new Date(Date.now() - currentDays * 86400000);
+  return breakdown.filter(d => new Date(d.date) >= cutoff);
+}
+
+function toWeekly(breakdown, metric) {
+  const weeks = {};
+  for (const d of breakdown) {
+    const dt = new Date(d.date);
+    const mon = new Date(dt);
+    mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+    const key = mon.toISOString().slice(0, 10);
+    weeks[key] = (weeks[key] || 0) + (d[metric] || 0);
+  }
+  return weeks;
+}
+
+function chartDefaults() {
+  return {
+    xTick: { color: cssVar('--muted'), maxTicksLimit: 8, maxRotation: 0 },
+    yTick: { color: cssVar('--muted') },
+    grid: { color: cssVar('--chart-grid') },
+  };
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
 function render() {
-  // Stats
   document.getElementById('val-views').textContent = fmt(accountData.views);
   document.getElementById('val-reactions').textContent = fmt(accountData.reactions);
   document.getElementById('val-comments').textContent = fmt(accountData.comments);
   document.getElementById('val-articles').textContent = accountData.articles;
-
   renderActivity();
   renderTraffic();
   renderArticles();
 }
 
-function getBreakdown() {
-  const bd = accountData.breakdown || [];
-  if (currentDays === 0) return bd;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - currentDays);
-  return bd.filter(d => new Date(d.date) >= cutoff);
+function renderActivity() {
+  if (isStacked) renderStackedActivity();
+  else renderTotalActivity();
 }
 
-function renderActivity() {
-  const bd = getBreakdown();
-  // Aggregate by week if > 180 days
+function renderTotalActivity() {
+  const bd = filterByDays(accountData.breakdown || []);
   let labels, data;
   if (bd.length > 180) {
-    const weeks = {};
-    bd.forEach(d => {
-      const dt = new Date(d.date);
-      const mon = new Date(dt); mon.setDate(dt.getDate() - dt.getDay() + 1);
-      const key = mon.toISOString().slice(0, 10);
-      if (!weeks[key]) weeks[key] = 0;
-      weeks[key] += d[currentMetric] || 0;
-    });
-    labels = Object.keys(weeks);
-    data = Object.values(weeks);
+    const w = toWeekly(bd, currentMetric);
+    labels = Object.keys(w).sort();
+    data = labels.map(k => w[k]);
   } else {
     labels = bd.map(d => d.date);
     data = bd.map(d => d[currentMetric] || 0);
   }
-
-  const color = currentMetric === 'views' ? '#22c55e' : '#a855f7';
+  const color = currentMetric === 'views' ? cssVar('--green') : cssVar('--purple');
+  const cd = chartDefaults();
   const ctx = document.getElementById('activity-chart').getContext('2d');
-
   if (activityChart) activityChart.destroy();
   activityChart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: color + '99',
-        borderColor: color,
-        borderWidth: 1,
-        borderRadius: 2,
-      }]
-    },
+    data: { labels, datasets: [{ data, backgroundColor: color + '99', borderColor: color, borderWidth: 1, borderRadius: 2 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { title: t => t[0].label, label: t => ` ${fmt(t.raw)} ${currentMetric}` }
-      }},
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: t => t[0].label, label: t => ` ${fmt(t.raw)} ${currentMetric}` } }
+      },
       scales: {
-        x: { ticks: { color: '#666', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: '#1f1f1f' } },
-        y: { ticks: { color: '#666' }, grid: { color: '#1f1f1f' }, beginAtZero: true }
+        x: { ticks: cd.xTick, grid: { color: cd.grid.color } },
+        y: { ticks: cd.yTick, grid: { color: cd.grid.color }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+async function renderStackedActivity() {
+  const topList = currentMetric === 'views' ? topData.by_views : topData.by_reaction;
+  const topItems = topList.slice(0, stackedCount);
+  const slugs = topItems.map(a => a.slug);
+
+  // Show loading placeholder
+  const ctx = document.getElementById('activity-chart').getContext('2d');
+  if (activityChart) activityChart.destroy();
+  activityChart = null;
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = cssVar('--muted');
+  ctx.font = '13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Loading article data…', ctx.canvas.width / 2, ctx.canvas.height / 2);
+
+  try {
+    await loadArticles(slugs);
+  } catch (e) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = cssVar('--red');
+    ctx.fillText('Failed to load article data', ctx.canvas.width / 2, ctx.canvas.height / 2);
+    return;
+  }
+
+  // Build per-article breakdowns filtered by range
+  const articleBDs = {};
+  const allDates = new Set();
+  for (const slug of slugs) {
+    const art = articleCache[slug];
+    if (!art?.breakdown) continue;
+    const bd = filterByDays(art.breakdown);
+    articleBDs[slug] = bd;
+    bd.forEach(d => allDates.add(d.date));
+  }
+
+  const useWeekly = allDates.size > 180;
+  let labels, datasets;
+
+  if (useWeekly) {
+    const weekMaps = {};
+    for (const slug of slugs) {
+      weekMaps[slug] = toWeekly(articleBDs[slug] || [], currentMetric);
+      Object.keys(weekMaps[slug]).forEach(k => allDates.add(k));
+    }
+    labels = Array.from(new Set(Object.values(weekMaps).flatMap(m => Object.keys(m)))).sort();
+    datasets = topItems.map((art, i) => ({
+      label: art.title.length > 45 ? art.title.slice(0, 45) + '…' : art.title,
+      data: labels.map(w => weekMaps[art.slug]?.[w] || 0),
+      backgroundColor: PALETTE[i] + 'bb',
+      borderColor: PALETTE[i],
+      borderWidth: 1,
+    }));
+  } else {
+    labels = Array.from(allDates).sort();
+    datasets = topItems.map((art, i) => {
+      const bdMap = {};
+      (articleBDs[art.slug] || []).forEach(d => { bdMap[d.date] = d[currentMetric] || 0; });
+      return {
+        label: art.title.length > 45 ? art.title.slice(0, 45) + '…' : art.title,
+        data: labels.map(date => bdMap[date] || 0),
+        backgroundColor: PALETTE[i] + 'bb',
+        borderColor: PALETTE[i],
+        borderWidth: 1,
+      };
+    });
+  }
+
+  const cd = chartDefaults();
+  activityChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          labels: { color: cssVar('--text'), font: { size: 11 }, boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            title: t => t[0].label,
+            label: t => ` ${t.dataset.label}: ${fmt(t.raw)}`,
+            footer: items => `Total: ${fmt(items.reduce((s, i) => s + (i.raw || 0), 0))}`
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: cd.xTick, grid: { color: cd.grid.color } },
+        y: { stacked: true, ticks: cd.yTick, grid: { color: cd.grid.color }, beginAtZero: true }
       }
     }
   });
@@ -256,15 +446,12 @@ function renderTraffic() {
   const refs = (accountData.referrers || []).slice(0, 12);
   const labels = refs.map(r => r.domain || 'Direct');
   const data = refs.map(r => r.count);
+  const cd = chartDefaults();
   const ctx = document.getElementById('traffic-chart').getContext('2d');
-
   if (trafficChart) trafficChart.destroy();
   trafficChart = new Chart(ctx, {
     type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data, backgroundColor: PALETTE, borderColor: '#1a1a1a', borderWidth: 2 }]
-    },
+    data: { labels, datasets: [{ data, backgroundColor: PALETTE, borderColor: cssVar('--surface'), borderWidth: 2 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -274,46 +461,74 @@ function renderTraffic() {
       cutout: '60%'
     }
   });
-
-  const legend = document.getElementById('traffic-legend');
   const total = data.reduce((a, b) => a + b, 0);
-  legend.innerHTML = refs.map((r, i) => `
+  document.getElementById('traffic-legend').innerHTML = refs.map((r, i) => `
     <div class="legend-item">
       <div class="legend-dot" style="background:${PALETTE[i]}"></div>
       <span class="legend-label">${r.domain || 'Direct'}</span>
-      <span class="legend-count">${fmt(r.count)} (${Math.round(r.count/total*100)}%)</span>
-    </div>
-  `).join('');
+      <span class="legend-count">${fmt(r.count)} (${Math.round(r.count / total * 100)}%)</span>
+    </div>`).join('');
 }
 
-function renderArticles() {
-  const list = currentSort === 'views' ? topData.by_views : topData.by_reaction;
-  const top10 = list.slice(0, 10);
+async function renderArticles() {
   const el = document.getElementById('articles-list');
-  el.innerHTML = top10.map((a, i) => {
-    const val = currentSort === 'views' ? a.views : a.reactions;
-    const org = a.org_username || 'gabrielkoo';
-    const url = `https://dev.to/${org}/${a.slug}`;
-    return `
-      <div class="article-item">
-        <div class="article-rank">${i + 1}</div>
-        <div class="article-info">
-          <a class="article-title" href="${url}" target="_blank">${a.title}</a>
-          <div class="article-meta">${org}</div>
-        </div>
-        <div class="article-stat ${currentSort}">${fmt(val)}</div>
-      </div>
-    `;
-  }).join('');
+
+  // If time-filtered, load individual article files and re-rank
+  if (currentDays > 0) {
+    const allSlugs = (currentMetric === 'views' ? topData.by_views : topData.by_reaction)
+      .slice(0, 15).map(a => a.slug);
+    el.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+      await loadArticles(allSlugs);
+    } catch (e) {
+      el.innerHTML = `<div class="error-msg">Failed to load: ${e.message}</div>`;
+      return;
+    }
+
+    const allItems = (currentMetric === 'views' ? topData.by_views : topData.by_reaction).slice(0, 15);
+    const ranked = allItems.map(art => {
+      const cached = articleCache[art.slug];
+      let val = 0;
+      if (cached?.breakdown) {
+        const bd = filterByDays(cached.breakdown);
+        val = bd.reduce((s, d) => s + (d[currentMetric] || 0), 0);
+      }
+      return { ...art, filteredVal: val };
+    }).sort((a, b) => b.filteredVal - a.filteredVal).slice(0, 10);
+
+    el.innerHTML = ranked.map((a, i) => articleRow(a, i, a.filteredVal)).join('');
+  } else {
+    // All-time: use pre-computed totals
+    const list = (currentMetric === 'views' ? topData.by_views : topData.by_reaction).slice(0, 10);
+    el.innerHTML = list.map((a, i) => {
+      const val = currentMetric === 'views' ? a.views : a.reactions;
+      return articleRow(a, i, val);
+    }).join('');
+  }
 }
 
-// Event listeners
+function articleRow(a, i, val) {
+  const org = a.org_username || 'gabrielkoo';
+  const url = `https://dev.to/${org}/${a.slug}`;
+  return `
+    <div class="article-item">
+      <div class="article-rank">${i + 1}</div>
+      <div class="article-info">
+        <a class="article-title" href="${url}" target="_blank">${a.title}</a>
+        <div class="article-meta">${org}</div>
+      </div>
+      <div class="article-stat ${currentMetric}">${fmt(val)}</div>
+    </div>`;
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+
 document.getElementById('metric-toggle').addEventListener('click', e => {
   const btn = e.target.closest('[data-metric]');
   if (!btn) return;
   currentMetric = btn.dataset.metric;
   document.querySelectorAll('#metric-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
-  renderActivity();
+  if (accountData) { renderActivity(); renderArticles(); }
 });
 
 document.getElementById('range-toggle').addEventListener('click', e => {
@@ -321,17 +536,26 @@ document.getElementById('range-toggle').addEventListener('click', e => {
   if (!btn) return;
   currentDays = parseInt(btn.dataset.days);
   document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
-  renderActivity();
+  if (accountData) { renderActivity(); renderArticles(); }
 });
 
-document.getElementById('articles-toggle').addEventListener('click', e => {
-  const btn = e.target.closest('[data-sort]');
+document.getElementById('stacked-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('[data-stacked]');
   if (!btn) return;
-  currentSort = btn.dataset.sort;
-  document.querySelectorAll('#articles-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
-  renderArticles();
+  isStacked = btn.dataset.stacked === 'true';
+  document.querySelectorAll('#stacked-toggle .btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('stacked-count-wrap').style.display = isStacked ? 'inline' : 'none';
+  if (accountData) renderActivity();
 });
 
+function cycleStackedCount(e) {
+  e.stopPropagation();
+  stackedCount = stackedCount === 3 ? 5 : 3;
+  document.getElementById('stacked-count-label').textContent = stackedCount;
+  if (accountData) renderActivity();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 loadData();
 </script>
 </body>
