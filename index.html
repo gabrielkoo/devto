@@ -52,6 +52,8 @@
     .btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 5px 11px; font-size: 12px; cursor: pointer; transition: all .15s; white-space: nowrap; }
     .btn:hover { border-color: var(--accent); color: var(--text); }
     .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .date-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+    .date-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 
     /* Panels */
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
@@ -133,7 +135,14 @@
         <button class="btn active" data-days="365">1y</button>
         <button class="btn" data-days="730">2y</button>
         <button class="btn" data-days="0">All</button>
+        <button class="btn" data-days="custom">Custom</button>
       </div>
+    </div>
+    <div class="controls-row" id="custom-date-row" style="display:none">
+      <span class="controls-label">From</span>
+      <input type="date" id="custom-start" class="date-input" />
+      <span class="controls-label">To</span>
+      <input type="date" id="custom-end" class="date-input" />
     </div>
   </div>
 
@@ -179,6 +188,82 @@ let articleFileMap = null, articleCache = {};
 let activityChart = null, trafficChart = null;
 let currentMetric = 'views', currentDays = 365;
 let isStacked = false, stackedCount = 3;
+let customStart = null, customEnd = null;
+
+// Query params: metric, days, start, end, stacked, count, theme
+function parseQueryParams() {
+  const p = new URLSearchParams(window.location.search);
+  const q = {};
+  for (const [k, v] of p) q[k] = v;
+  return q;
+}
+
+function applyQueryParams(q) {
+  // metric
+  if (q.metric && ['views', 'reactions'].includes(q.metric)) {
+    currentMetric = q.metric;
+    document.querySelectorAll('#metric-toggle .btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.metric === currentMetric);
+    });
+  }
+  // days / custom dates
+  if (q.days === 'custom' || (q.start && q.end)) {
+    document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.remove('active'));
+    const customBtn = document.querySelector('#range-toggle .btn[data-days="custom"]');
+    if (customBtn) customBtn.classList.add('active');
+    document.getElementById('custom-date-row').style.display = 'flex';
+    if (q.start) { customStart = q.start; document.getElementById('custom-start').value = q.start; }
+    if (q.end) { customEnd = q.end; document.getElementById('custom-end').value = q.end; }
+    currentDays = -1; // custom mode
+  } else if (q.days !== undefined) {
+    const d = parseInt(q.days);
+    if (!isNaN(d)) {
+      currentDays = d;
+      document.querySelectorAll('#range-toggle .btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.days) === d);
+      });
+    }
+  }
+  // stacked
+  if (q.stacked === 'true') {
+    isStacked = true;
+    document.querySelectorAll('#stacked-toggle .btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.stacked === 'true');
+    });
+    document.getElementById('stacked-count-wrap').style.display = 'inline';
+  }
+  // count
+  if (q.count && [3, 5].includes(parseInt(q.count))) {
+    stackedCount = parseInt(q.count);
+    document.getElementById('stacked-count-label').textContent = stackedCount;
+  }
+  // theme
+  if (q.theme === 'light' || q.theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', q.theme);
+    localStorage.setItem('devto-theme', q.theme);
+    document.getElementById('theme-btn').textContent = q.theme === 'dark' ? '☀️' : '🌙';
+  }
+}
+
+function updateURL() {
+  const p = new URLSearchParams();
+  if (currentMetric !== 'views') p.set('metric', currentMetric);
+  if (currentDays === -1) {
+    p.set('days', 'custom');
+    if (customStart) p.set('start', customStart);
+    if (customEnd) p.set('end', customEnd);
+  } else if (currentDays !== 365) {
+    p.set('days', String(currentDays));
+  }
+  if (isStacked) p.set('stacked', 'true');
+  if (stackedCount !== 3) p.set('count', String(stackedCount));
+  const theme = localStorage.getItem('devto-theme') || 'dark';
+  if (theme !== 'dark') p.set('theme', theme);
+  const newUrl = p.toString() ? '?' + p.toString() : window.location.pathname;
+  if (window.location.search !== (p.toString() ? '?' + p.toString() : '')) {
+    window.history.replaceState({}, '', newUrl);
+  }
+}
 
 // Theme
 const savedTheme = localStorage.getItem('devto-theme') || 'dark';
@@ -191,6 +276,7 @@ function toggleTheme() {
   localStorage.setItem('devto-theme', next);
   document.getElementById('theme-btn').textContent = next === 'dark' ? '☀️' : '🌙';
   if (accountData) { renderActivity(); renderTraffic(); }
+  updateURL();
 }
 
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
@@ -199,6 +285,9 @@ function fmt(n) { if (n == null) return '—'; if (n >= 1000) return (n/1000).to
 // ── Data loading ──────────────────────────────────────────────────────────────
 
 async function loadData() {
+  // Apply query params first
+  applyQueryParams(parseQueryParams());
+
   try {
     const [acc, top] = await Promise.all([
       fetch(`${BASE}/account.json`).then(r => r.json()),
@@ -243,6 +332,15 @@ async function loadArticles(slugs) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function filterByDays(bd) {
+  if (currentDays === -1 && customStart && customEnd) {
+    const start = new Date(customStart);
+    const end = new Date(customEnd);
+    end.setHours(23, 59, 59, 999);
+    return bd.filter(d => {
+      const dt = new Date(d.date);
+      return dt >= start && dt <= end;
+    });
+  }
   if (!currentDays) return bd;
   const cutoff = new Date(Date.now() - currentDays * 86400000);
   return bd.filter(d => new Date(d.date) >= cutoff);
@@ -490,13 +588,35 @@ document.getElementById('metric-toggle').addEventListener('click', e => {
   currentMetric = btn.dataset.metric;
   document.querySelectorAll('#metric-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
   if (accountData) { renderActivity(); renderArticles(); }
+  updateURL();
 });
 
 document.getElementById('range-toggle').addEventListener('click', e => {
   const btn = e.target.closest('[data-days]'); if (!btn) return;
-  currentDays = parseInt(btn.dataset.days);
+  const days = btn.dataset.days;
+  if (days === 'custom') {
+    document.getElementById('custom-date-row').style.display = 'flex';
+    currentDays = -1;
+  } else {
+    document.getElementById('custom-date-row').style.display = 'none';
+    currentDays = parseInt(days);
+  }
   document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
   if (accountData) { renderActivity(); renderArticles(); }
+  updateURL();
+});
+
+// Custom date inputs
+document.getElementById('custom-start').addEventListener('change', e => {
+  customStart = e.target.value || null;
+  if (accountData) { renderActivity(); renderArticles(); }
+  updateURL();
+});
+
+document.getElementById('custom-end').addEventListener('change', e => {
+  customEnd = e.target.value || null;
+  if (accountData) { renderActivity(); renderArticles(); }
+  updateURL();
 });
 
 document.getElementById('stacked-toggle').addEventListener('click', e => {
@@ -505,6 +625,7 @@ document.getElementById('stacked-toggle').addEventListener('click', e => {
   document.querySelectorAll('#stacked-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
   document.getElementById('stacked-count-wrap').style.display = isStacked ? 'inline' : 'none';
   if (accountData) renderActivity();
+  updateURL();
 });
 
 function cycleStackedCount(e) {
@@ -512,6 +633,7 @@ function cycleStackedCount(e) {
   stackedCount = stackedCount === 3 ? 5 : 3;
   document.getElementById('stacked-count-label').textContent = stackedCount;
   if (accountData) renderActivity();
+  updateURL();
 }
 
 loadData();
