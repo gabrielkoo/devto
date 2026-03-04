@@ -524,25 +524,8 @@ async function renderStackedActivity() {
 }
 
 function renderTraffic() {
-  const isFiltered = currentDays !== 0;
-  let refs;
-
-  if (isFiltered && Object.keys(articleCache).length > 0) {
-    const refMap = {};
-    for (const art of Object.values(articleCache)) {
-      for (const r of (art.referrers || [])) {
-        const key = r.domain || 'Direct';
-        refMap[key] = (refMap[key] || 0) + (r.count || 0);
-      }
-    }
-    const entries = Object.entries(refMap).map(([domain, count]) => ({ domain, count })).sort((a,b) => b.count - a.count);
-    if (entries.length) refs = entries.slice(0, 12);
-  }
-
-  if (!refs || !refs.length) refs = (accountData.referrers || []).slice(0, 12);
-
-  document.getElementById('traffic-subtitle').textContent =
-    isFiltered && Object.keys(articleCache).length > 0 ? `(top articles, ${filterLabel()})` : '(all-time)';
+  const refs = (accountData.referrers || []).slice(0, 12);
+  document.getElementById('traffic-subtitle').textContent = '(all-time)';
   const labels = refs.map(r => r.domain||'Direct');
   const data = refs.map(r => r.count);
   const ctx = document.getElementById('traffic-chart').getContext('2d');
@@ -589,7 +572,6 @@ async function renderArticles() {
     .slice(0, 10);
 
     el.innerHTML = ranked.map((a,i) => articleRow(a, i, a.filteredViews, a.filteredReactions)).join('');
-    renderTraffic();
   } else {
     const list = Object.values(artMap)
       .sort((a,b) => currentMetric === 'views' ? b.views - a.views : b.reactions - a.reactions)
