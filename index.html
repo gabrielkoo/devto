@@ -161,7 +161,7 @@
   <div class="two-col">
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">Traffic Sources <span class="panel-subtitle">(all-time)</span></span>
+        <span class="panel-title">Traffic Sources <span class="panel-subtitle" id="traffic-subtitle">(all-time)</span></span>
       </div>
       <div class="donut-wrap"><canvas id="traffic-chart"></canvas></div>
       <div class="donut-legend" id="traffic-legend"></div>
@@ -384,12 +384,26 @@ function mergedArticleMap() {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-function render() {
-  document.getElementById('val-views').textContent    = fmt(accountData.views);
-  document.getElementById('val-reactions').textContent = fmt(accountData.reactions);
-  document.getElementById('val-comments').textContent  = fmt(accountData.comments);
+function filterLabel() {
+  if (currentDays === 0) return 'all-time';
+  if (currentDays === -1 && customStart && customEnd) return `${customStart} – ${customEnd}`;
+  if (currentDays === -1) return 'custom';
+  return `last ${currentDays}d`;
+}
+
+function renderStats() {
+  const bd = filterByDays(accountData.breakdown || []);
+  const views     = bd.reduce((s, d) => s + (d.views     || 0), 0);
+  const reactions = bd.reduce((s, d) => s + (d.reactions || 0), 0);
+  const comments  = bd.reduce((s, d) => s + (d.comments  || 0), 0);
+  document.getElementById('val-views').textContent     = fmt(views);
+  document.getElementById('val-reactions').textContent = fmt(reactions);
+  document.getElementById('val-comments').textContent  = fmt(comments);
   document.getElementById('val-articles').textContent  = accountData.articles;
-  renderActivity(); renderTraffic(); renderArticles();
+}
+
+function render() {
+  renderStats(); renderActivity(); renderTraffic(); renderArticles();
 }
 
 function renderActivity() {
@@ -510,7 +524,25 @@ async function renderStackedActivity() {
 }
 
 function renderTraffic() {
-  const refs = (accountData.referrers||[]).slice(0,12);
+  const isFiltered = currentDays !== 0;
+  let refs;
+
+  if (isFiltered && Object.keys(articleCache).length > 0) {
+    const refMap = {};
+    for (const art of Object.values(articleCache)) {
+      for (const r of (art.referrers || [])) {
+        const key = r.domain || 'Direct';
+        refMap[key] = (refMap[key] || 0) + (r.count || 0);
+      }
+    }
+    const entries = Object.entries(refMap).map(([domain, count]) => ({ domain, count })).sort((a,b) => b.count - a.count);
+    if (entries.length) refs = entries.slice(0, 12);
+  }
+
+  if (!refs || !refs.length) refs = (accountData.referrers || []).slice(0, 12);
+
+  document.getElementById('traffic-subtitle').textContent =
+    isFiltered && Object.keys(articleCache).length > 0 ? `(top articles, ${filterLabel()})` : '(all-time)';
   const labels = refs.map(r => r.domain||'Direct');
   const data = refs.map(r => r.count);
   const ctx = document.getElementById('traffic-chart').getContext('2d');
@@ -538,7 +570,7 @@ async function renderArticles() {
   const artMap = mergedArticleMap();
   const allSlugs = Object.keys(artMap).slice(0, 15);
 
-  if (currentDays > 0) {
+  if (currentDays !== 0) {
     el.innerHTML = '<div class="loading">Loading…</div>';
     try { await loadArticles(allSlugs); }
     catch (e) { el.innerHTML = `<div class="error-msg">Failed: ${e.message}</div>`; return; }
@@ -557,6 +589,7 @@ async function renderArticles() {
     .slice(0, 10);
 
     el.innerHTML = ranked.map((a,i) => articleRow(a, i, a.filteredViews, a.filteredReactions)).join('');
+    renderTraffic();
   } else {
     const list = Object.values(artMap)
       .sort((a,b) => currentMetric === 'views' ? b.views - a.views : b.reactions - a.reactions)
@@ -587,11 +620,7 @@ document.getElementById('metric-toggle').addEventListener('click', e => {
   const btn = e.target.closest('[data-metric]'); if (!btn) return;
   currentMetric = btn.dataset.metric;
   document.querySelectorAll('#metric-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
-  if (accountData) { renderActivity(); renderArticles(); }
-  updateURL();
-});
-
-document.getElementById('range-toggle').addEventListener('click', e => {
+  if (accountData) { renderStats(); renderActivity(); renderArticles(); }.addEventListener('click', e => {
   const btn = e.target.closest('[data-days]'); if (!btn) return;
   const days = btn.dataset.days;
   if (days === 'custom') {
@@ -602,20 +631,13 @@ document.getElementById('range-toggle').addEventListener('click', e => {
     currentDays = parseInt(days);
   }
   document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
-  if (accountData) { renderActivity(); renderArticles(); }
-  updateURL();
-});
-
-// Custom date inputs
-document.getElementById('custom-start').addEventListener('change', e => {
-  customStart = e.target.value || null;
-  if (accountData) { renderActivity(); renderArticles(); }
+  if (accountData) { renderStats(); renderActivity(); renderTraffic(); renderArticles(); }
   updateURL();
 });
 
 document.getElementById('custom-end').addEventListener('change', e => {
   customEnd = e.target.value || null;
-  if (accountData) { renderActivity(); renderArticles(); }
+  if (accountData) { renderStats(); renderActivity(); renderTraffic(); renderArticles(); }
   updateURL();
 });
 
