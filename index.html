@@ -620,7 +620,11 @@ document.getElementById('metric-toggle').addEventListener('click', e => {
   const btn = e.target.closest('[data-metric]'); if (!btn) return;
   currentMetric = btn.dataset.metric;
   document.querySelectorAll('#metric-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
-  if (accountData) { renderStats(); renderActivity(); renderArticles(); }.addEventListener('click', e => {
+  if (accountData) { renderStats(); renderActivity(); renderArticles(); }
+  updateURL();
+});
+
+document.getElementById('range-toggle').addEventListener('click', e => {
   const btn = e.target.closest('[data-days]'); if (!btn) return;
   const days = btn.dataset.days;
   if (days === 'custom') {
@@ -631,6 +635,13 @@ document.getElementById('metric-toggle').addEventListener('click', e => {
     currentDays = parseInt(days);
   }
   document.querySelectorAll('#range-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
+  if (accountData) { renderStats(); renderActivity(); renderTraffic(); renderArticles(); }
+  updateURL();
+});
+
+// Custom date inputs
+document.getElementById('custom-start').addEventListener('change', e => {
+  customStart = e.target.value || null;
   if (accountData) { renderStats(); renderActivity(); renderTraffic(); renderArticles(); }
   updateURL();
 });
