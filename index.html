@@ -588,8 +588,8 @@ async function renderStackedActivity() {
         }
       },
       scales: {
-        x: { ...sc.x, stacked: !isCumulative },
-        y: { ...sc.y, stacked: !isCumulative }
+        x: { ...sc.x, stacked: true },
+        y: { ...sc.y, stacked: true }
       }
     }
   });
