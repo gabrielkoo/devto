@@ -71,7 +71,11 @@
 
     /* Traffic donut */
     .donut-wrap { position: relative; height: 200px; }
-    .donut-legend { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+    .donut-legend { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: scroll; scrollbar-width: thin; }
+    .donut-legend::-webkit-scrollbar { width: 6px; }
+    .donut-legend::-webkit-scrollbar-track { background: var(--bg); border-radius: 3px; }
+    .donut-legend::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .donut-legend::-webkit-scrollbar-thumb:hover { background: var(--muted); }
     @media (min-width: 641px) { .donut-legend { max-height: 400px; } }
     .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
