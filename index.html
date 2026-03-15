@@ -375,7 +375,6 @@ function chartScales() {
   return {
     x: { ticks: { color: cssVar('--muted'), maxTicksLimit: 8, maxRotation: 0 }, grid: { color: cssVar('--chart-grid') } },
     y: {
-      type: 'logarithmic',
       ticks: {
         color: cssVar('--muted'),
         callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v
