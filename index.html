@@ -150,9 +150,15 @@
   <div class="panel">
     <div class="panel-header">
       <span class="panel-title">Daily Activity</span>
-      <div class="btn-group" id="stacked-toggle">
-        <button class="btn active" data-stacked="false">Total</button>
-        <button class="btn" data-stacked="true">Stacked &nbsp;<span id="stacked-count-wrap" style="display:none"><span id="stacked-count-toggle" style="cursor:pointer;text-decoration:underline dotted" onclick="cycleStackedCount(event)">Top <span id="stacked-count-label">3</span></span></span></button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="btn-group" id="stacked-toggle">
+          <button class="btn active" data-stacked="false">Total</button>
+          <button class="btn" data-stacked="true">Stacked &nbsp;<span id="stacked-count-wrap" style="display:none"><span id="stacked-count-toggle" style="cursor:pointer;text-decoration:underline dotted" onclick="cycleStackedCount(event)">Top <span id="stacked-count-label">3</span></span></span></button>
+        </div>
+        <div class="btn-group" id="cumulative-toggle">
+          <button class="btn active" data-cumulative="false">Daily</button>
+          <button class="btn" data-cumulative="true">Cumulative</button>
+        </div>
       </div>
     </div>
     <div class="chart-wrap"><canvas id="activity-chart"></canvas></div>
@@ -181,13 +187,13 @@
 <script>
 const BASE = 'https://gabrielkoo.github.io/devto-stats-github-action/data';
 const GH_API = 'https://api.github.com/repos/gabrielkoo/devto-stats-github-action/contents/data/articles';
-const PALETTE = ['#3b49df','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#eab308','#14b8a6','#f43f5e','#8b5cf6','#84cc16','#0ea5e9'];
+const PALETTE = ['#3b49df','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#eab308','#14b8a6','#f43f5e','#8b5cf6','#84cc16','#0ea5e9','#d946ef','#fb923c','#2dd4bf','#facc15','#38bdf8','#f472b6','#a3e635','#818cf8','#34d399','#fbbf24'];
 
 let accountData = null, topData = null;
 let articleFileMap = null, articleCache = {};
 let activityChart = null, trafficChart = null;
 let currentMetric = 'views', currentDays = 365;
-let isStacked = false, stackedCount = 3;
+let isStacked = false, stackedCount = 3, isCumulative = false;
 let customStart = null, customEnd = null;
 
 // Query params: metric, days, start, end, stacked, count, theme
@@ -237,6 +243,13 @@ function applyQueryParams(q) {
     stackedCount = parseInt(q.count);
     document.getElementById('stacked-count-label').textContent = stackedCount;
   }
+  // cumulative
+  if (q.cumulative === 'true') {
+    isCumulative = true;
+    document.querySelectorAll('#cumulative-toggle .btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.cumulative === 'true');
+    });
+  }
   // theme
   if (q.theme === 'light' || q.theme === 'dark') {
     document.documentElement.setAttribute('data-theme', q.theme);
@@ -257,6 +270,7 @@ function updateURL() {
   }
   if (isStacked) p.set('stacked', 'true');
   if (stackedCount !== 3) p.set('count', String(stackedCount));
+  if (isCumulative) p.set('cumulative', 'true');
   const theme = localStorage.getItem('devto-theme') || 'dark';
   if (theme !== 'dark') p.set('theme', theme);
   const newUrl = p.toString() ? '?' + p.toString() : window.location.pathname;
@@ -410,6 +424,11 @@ function renderActivity() {
   if (isStacked) renderStackedActivity(); else renderTotalActivity();
 }
 
+function toCumulative(arr) {
+  let sum = 0;
+  return arr.map(v => { sum += v; return sum; });
+}
+
 function renderTotalActivity() {
   const bd = filterByDays(accountData.breakdown || []);
   let labels, data;
@@ -419,16 +438,18 @@ function renderTotalActivity() {
   } else {
     labels = bd.map(d => d.date); data = bd.map(d => d[currentMetric]||0);
   }
+  if (isCumulative) data = toCumulative(data);
   const color = currentMetric === 'views' ? cssVar('--green') : cssVar('--purple');
   const sc = chartScales();
+  if (isCumulative) sc.y = { ticks: { color: cssVar('--muted'), callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }, grid: { color: cssVar('--chart-grid') } };
   const ctx = document.getElementById('activity-chart').getContext('2d');
   if (activityChart) activityChart.destroy();
   activityChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: color+'99', borderColor: color, borderWidth: 1, borderRadius: 2 }] },
+    type: isCumulative ? 'line' : 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: color+'99', borderColor: color, borderWidth: isCumulative ? 2 : 1, borderRadius: isCumulative ? 0 : 2, fill: isCumulative, pointRadius: 0, tension: 0.3 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: t => t[0].label, label: t => ` ${fmt(t.raw)} ${currentMetric}` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: t => t[0].label, label: t => ` ${fmt(t.raw)} ${currentMetric}${isCumulative ? ' (cumulative)' : ''}` } } },
       scales: sc
     }
   });
@@ -460,7 +481,10 @@ async function renderStackedActivity() {
     let val = 0;
     if (cached?.breakdown) val = filterByDays(cached.breakdown).reduce((s,d) => s+(d[currentMetric]||0), 0);
     return { ...art, filteredVal: val };
-  }).sort((a,b) => b.filteredVal - a.filteredVal).slice(0, stackedCount);
+  }).sort((a,b) => b.filteredVal - a.filteredVal);
+
+  const topN = ranked.slice(0, stackedCount);
+  const topSlugs = new Set(topN.map(a => a.slug));
 
   // Build per-article breakdowns
   const allDates = new Set();
@@ -471,36 +495,84 @@ async function renderStackedActivity() {
     bds[art.slug] = filterByDays(cached.breakdown);
     bds[art.slug].forEach(d => allDates.add(d.date));
   }
+  // Also include account-level dates for "Others" calculation
+  const accountBd = filterByDays(accountData.breakdown || []);
+  accountBd.forEach(d => allDates.add(d.date));
 
   const useWeekly = allDates.size > 180;
   let labels, datasets;
 
   if (useWeekly) {
     const weekMaps = {};
-    for (const art of ranked) weekMaps[art.slug] = toWeekly(bds[art.slug]||[], currentMetric);
-    const allWeeks = new Set(Object.values(weekMaps).flatMap(m => Object.keys(m)));
+    for (const art of topN) weekMaps[art.slug] = toWeekly(bds[art.slug]||[], currentMetric);
+    const accountWeekly = toWeekly(accountBd, currentMetric);
+    const allWeeks = new Set([...Object.values(weekMaps).flatMap(m => Object.keys(m)), ...Object.keys(accountWeekly)]);
     labels = Array.from(allWeeks).sort();
-    datasets = ranked.map((art, i) => ({
-      label: art.title.length > 45 ? art.title.slice(0,45)+'…' : art.title,
-      data: labels.map(w => weekMaps[art.slug]?.[w]||0),
-      backgroundColor: PALETTE[i]+'bb', borderColor: PALETTE[i], borderWidth: 1,
-    }));
-  } else {
-    labels = Array.from(allDates).sort();
-    datasets = ranked.map((art, i) => {
-      const bdMap = {};
-      (bds[art.slug]||[]).forEach(d => { bdMap[d.date] = d[currentMetric]||0; });
+
+    datasets = topN.map((art, i) => {
+      let data = labels.map(w => weekMaps[art.slug]?.[w]||0);
+      if (isCumulative) data = toCumulative(data);
       return {
         label: art.title.length > 45 ? art.title.slice(0,45)+'…' : art.title,
-        data: labels.map(date => bdMap[date]||0),
-        backgroundColor: PALETTE[i]+'bb', borderColor: PALETTE[i], borderWidth: 1,
+        data, backgroundColor: PALETTE[i]+'bb', borderColor: PALETTE[i], borderWidth: isCumulative ? 2 : 1,
+        ...(isCumulative ? { fill: true, pointRadius: 0, tension: 0.3 } : {}),
       };
+    });
+
+    // Others = account total - sum of top N per week
+    let othersData = labels.map(w => {
+      const total = accountWeekly[w] || 0;
+      const topSum = topN.reduce((s, art) => s + (weekMaps[art.slug]?.[w]||0), 0);
+      return Math.max(0, total - topSum);
+    });
+    if (isCumulative) othersData = toCumulative(othersData);
+    const oi = topN.length;
+    datasets.push({
+      label: 'Others',
+      data: othersData, backgroundColor: (PALETTE[oi]||'#666')+'88', borderColor: PALETTE[oi]||'#666', borderWidth: isCumulative ? 2 : 1,
+      ...(isCumulative ? { fill: true, pointRadius: 0, tension: 0.3 } : {}),
+    });
+  } else {
+    labels = Array.from(allDates).sort();
+    // Account-level daily map
+    const accountDayMap = {};
+    accountBd.forEach(d => { accountDayMap[d.date] = d[currentMetric]||0; });
+
+    datasets = topN.map((art, i) => {
+      const bdMap = {};
+      (bds[art.slug]||[]).forEach(d => { bdMap[d.date] = d[currentMetric]||0; });
+      let data = labels.map(date => bdMap[date]||0);
+      if (isCumulative) data = toCumulative(data);
+      return {
+        label: art.title.length > 45 ? art.title.slice(0,45)+'…' : art.title,
+        data, backgroundColor: PALETTE[i]+'bb', borderColor: PALETTE[i], borderWidth: isCumulative ? 2 : 1,
+        ...(isCumulative ? { fill: true, pointRadius: 0, tension: 0.3 } : {}),
+      };
+    });
+
+    // Others = account total - sum of top N per day
+    let othersData = labels.map(date => {
+      const total = accountDayMap[date] || 0;
+      const topSum = topN.reduce((s, art) => {
+        const bdMap = {};
+        (bds[art.slug]||[]).forEach(d => { bdMap[d.date] = d[currentMetric]||0; });
+        return s + (bdMap[date]||0);
+      }, 0);
+      return Math.max(0, total - topSum);
+    });
+    if (isCumulative) othersData = toCumulative(othersData);
+    const oi = topN.length;
+    datasets.push({
+      label: 'Others',
+      data: othersData, backgroundColor: (PALETTE[oi]||'#666')+'88', borderColor: PALETTE[oi]||'#666', borderWidth: isCumulative ? 2 : 1,
+      ...(isCumulative ? { fill: true, pointRadius: 0, tension: 0.3 } : {}),
     });
   }
 
   const sc = chartScales();
+  if (isCumulative) sc.y = { ticks: { color: cssVar('--muted'), callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }, grid: { color: cssVar('--chart-grid') } };
   activityChart = new Chart(ctx, {
-    type: 'bar',
+    type: isCumulative ? 'line' : 'bar',
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -516,36 +588,41 @@ async function renderStackedActivity() {
         }
       },
       scales: {
-        x: { ...sc.x, stacked: true },
-        y: { ...sc.y, stacked: true }
+        x: { ...sc.x, stacked: !isCumulative },
+        y: { ...sc.y, stacked: !isCumulative }
       }
     }
   });
 }
 
 function renderTraffic() {
-  const refs = (accountData.referrers || []).slice(0, 12);
+  const refs = accountData.referrers || [];
   document.getElementById('traffic-subtitle').textContent = '(all-time)';
   const labels = refs.map(r => r.domain||'Direct');
   const data = refs.map(r => r.count);
+  const colors = refs.map((_, i) => PALETTE[i % PALETTE.length]);
   const ctx = document.getElementById('traffic-chart').getContext('2d');
   if (trafficChart) trafficChart.destroy();
   trafficChart = new Chart(ctx, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: PALETTE, borderColor: cssVar('--surface'), borderWidth: 2 }] },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: cssVar('--surface'), borderWidth: 2 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: t => ` ${t.label}: ${fmt(t.raw)}` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: t => { const pct = (t.raw / data.reduce((a,b)=>a+b,0) * 100); return ` ${t.label}: ${fmt(t.raw)} (${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%)`; } } } },
       cutout: '60%'
     }
   });
   const total = data.reduce((a,b)=>a+b,0);
-  document.getElementById('traffic-legend').innerHTML = refs.map((r,i) => `
+  document.getElementById('traffic-legend').innerHTML = refs.map((r,i) => {
+    const pct = r.count / total * 100;
+    const pctStr = pct < 1 ? pct.toFixed(1) : Math.round(pct);
+    return `
     <div class="legend-item">
-      <div class="legend-dot" style="background:${PALETTE[i]}"></div>
+      <div class="legend-dot" style="background:${colors[i]}"></div>
       <span class="legend-label">${r.domain||'Direct'}</span>
-      <span class="legend-count">${fmt(r.count)} (${Math.round(r.count/total*100)}%)</span>
-    </div>`).join('');
+      <span class="legend-count">${fmt(r.count)} (${pctStr}%)</span>
+    </div>`;
+  }).join('');
 }
 
 async function renderArticles() {
@@ -639,6 +716,14 @@ document.getElementById('stacked-toggle').addEventListener('click', e => {
   isStacked = btn.dataset.stacked === 'true';
   document.querySelectorAll('#stacked-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
   document.getElementById('stacked-count-wrap').style.display = isStacked ? 'inline' : 'none';
+  if (accountData) renderActivity();
+  updateURL();
+});
+
+document.getElementById('cumulative-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('[data-cumulative]'); if (!btn) return;
+  isCumulative = btn.dataset.cumulative === 'true';
+  document.querySelectorAll('#cumulative-toggle .btn').forEach(b => b.classList.toggle('active', b===btn));
   if (accountData) renderActivity();
   updateURL();
 });
